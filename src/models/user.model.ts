@@ -60,6 +60,11 @@ const userSchema = new Schema(
       emailSummary: { type: Boolean, default: true },
       language: { type: String, default: 'en-IN' },
       currentTheme: { type: String, default: 'space' },
+      conversionAlerts: { type: Boolean, default: true },
+      purchaseAlerts: { type: Boolean, default: true },
+      rewardAlerts: { type: Boolean, default: true },
+      campaignAlerts: { type: Boolean, default: true },
+      giftAlerts: { type: Boolean, default: true },
     },
     weeklySchedule: {
       monday: { type: Boolean, default: true },

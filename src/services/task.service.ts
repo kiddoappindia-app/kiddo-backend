@@ -3,6 +3,7 @@ import { Activity } from '../models/activity.model.js';
 import { Task } from '../models/task.model.js';
 import { User } from '../models/user.model.js';
 import { ApiError } from '../utils/api-error.js';
+import { RewardService } from './reward.service.js';
 import { NotificationService } from './notification.service.js';
 
 export async function listTasks(familyId: string, userId?: string, role?: string) {
@@ -115,13 +116,28 @@ export async function updateTask(
   if (input.status === 'approved') {
     task.approvedAt = new Date();
     const xpGain = task.points * 10;
-    
+
+    // Use centralized RewardService for point awarding
+    const childId = String(task.assignedTo);
+    const actionType = task.skillTag
+      ? `task_${task.skillTag.toLowerCase()}`
+      : 'task_completed';
+
+    await RewardService.awardPoints(
+      childId,
+      actionType,
+      task.points,
+      'task',
+      task._id.toString(),
+      `Approved task "${task.title}" (+${task.points} pts, +${xpGain} XP)`,
+      actorId,
+    ).catch((err) => {
+      console.error('RewardService.awardPoints failed (task approval):', err);
+    });
+
     const user = await User.findById(task.assignedTo);
     if (user) {
-      user.points += task.points;
-      user.xp += xpGain;
-      
-      // Update Skill Trees
+      // XP is managed by RewardService, but we also apply skill XP here
       if (!user.skillXP) user.skillXP = { intelligence: 0, strength: 0, kindness: 0 };
       const tag = (task.skillTag || '').toLowerCase();
       const cat = (task.category || '').toLowerCase();
@@ -133,13 +149,6 @@ export async function updateTask(
       } else {
         user.skillXP.kindness += xpGain;
       }
-      
-      // Level up check
-      let xpNeeded = user.level * user.level * 100;
-      while (user.xp >= xpNeeded) {
-        user.level += 1;
-        xpNeeded = user.level * user.level * 100;
-      }
       await user.save();
     }
 
@@ -150,13 +159,6 @@ export async function updateTask(
       message: `Approved task "${task.title}" (+${task.points} pts, +${xpGain} XP)`,
       metadata: { taskId: task.id },
     });
-
-    // Send Push Notification to Child
-    NotificationService.sendToUser(
-      String(task.assignedTo),
-      'Quest Approved! 🌟',
-      `Your quest "${task.title}" was approved! You earned ${task.points} points and ${task.points * 10} XP. Keep it up!`
-    ).catch(() => {});
 
     // Handle Recurrence
     if (task.isRecurring) {

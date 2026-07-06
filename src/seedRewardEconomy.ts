@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import { RewardRule } from './models/reward-rule.model.js';
 import { RewardCategory } from './models/reward-category.model.js';
 import { RewardCampaign } from './models/reward-campaign.model.js';
+import { RewardSettings } from './models/reward-settings.model.js';
+import { Wallet } from './models/wallet.model.js';
 
 dotenv.config();
 
@@ -73,6 +75,38 @@ async function seedRewardEconomy() {
   }
 
   const adminId = adminUser._id;
+
+  // Seed global reward settings
+  const defaultSettings = [
+    { key: 'conversion_ratio', value: 1000, description: 'Reward Points needed for 1 Redeem Coin' },
+    { key: 'min_conversion_points', value: 1000, description: 'Minimum Reward Points per conversion' },
+    { key: 'max_daily_conversions', value: 10, description: 'Maximum conversions per day' },
+    { key: 'max_weekly_conversions', value: 50, description: 'Maximum conversions per week' },
+    { key: 'max_monthly_conversions', value: 200, description: 'Maximum conversions per month' },
+  ];
+
+  for (const setting of defaultSettings) {
+    const existing = await RewardSettings.findOne({ key: setting.key });
+    if (!existing) {
+      await RewardSettings.create(setting);
+      console.log(`Created reward setting: ${setting.key} = ${setting.value}`);
+    }
+  }
+
+  // Ensure every existing child has a wallet
+  const childrenWithoutWallets = await mongoose.connection.db
+    ?.collection('users')
+    .find({ role: 'child', _id: { $nin: await Wallet.distinct('childId') } })
+    .toArray();
+
+  if (childrenWithoutWallets && childrenWithoutWallets.length > 0) {
+    const walletDocs = childrenWithoutWallets.map((child) => ({
+      childId: child._id,
+      rewardPoints: child.points ?? 0,
+    }));
+    await Wallet.insertMany(walletDocs);
+    console.log(`Created wallets for ${walletDocs.length} existing children`);
+  }
 
   for (const rule of defaultRules) {
     const existing = await RewardRule.findOne({ actionType: rule.actionType });

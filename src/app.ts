@@ -24,6 +24,7 @@ import avatarRoutes from './routes/avatar.routes.js';
 import walletRoutes from './routes/wallet.routes.js';
 import rewardStoreRoutes from './routes/reward-store.routes.js';
 import rewardAdminRoutes from './routes/reward-admin.routes.js';
+import managementRoutes from './routes/management.routes.js';
 import scheduleRoutes from './routes/schedule.routes.js';
 import wakeUpRoutes from './routes/wake-up.routes.js';
 import { swaggerSpec } from './docs/swagger.js';
@@ -73,6 +74,7 @@ app.use('/api/v1/avatar', avatarRoutes);
 app.use('/api/v1/wallet', walletRoutes);
 app.use('/api/v1/store', rewardStoreRoutes);
 app.use('/api/v1/admin/economy', rewardAdminRoutes);
+app.use('/api/v1/management', managementRoutes);
 app.use('/api/v1/schedule', scheduleRoutes);
 app.use('/api/v1/wake-up', wakeUpRoutes);
 

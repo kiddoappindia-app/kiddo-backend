@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { RewardAdminService } from '../services/reward-admin.service.js';
-import { WalletService } from '../services/wallet.service.js';
+import { RewardService } from '../services/reward.service.js';
 import { asyncHandler } from '../utils/async-handler.js';
 
 export const listRules = asyncHandler(async (_req: Request, res: Response) => {
@@ -62,18 +62,18 @@ export const getConversionAnalytics = asyncHandler(async (_req: Request, res: Re
 export const adjustBalance = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.params.userId as string;
   const { pointsDelta, coinsDelta, reason } = req.body;
-  const result = await WalletService.adjustBalance(userId, req.user!.id, pointsDelta || 0, coinsDelta || 0, reason || 'Admin adjustment');
+  const result = await RewardService.adjustBalance(userId, req.user!.id, pointsDelta || 0, coinsDelta || 0, reason || 'Admin adjustment');
   res.json(result);
 });
 
 export const freezeWallet = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.params.userId as string;
-  const result = await WalletService.freezeWallet(userId);
+  const result = await RewardService.setWalletStatus(userId, 'frozen');
   res.json(result);
 });
 
 export const unfreezeWallet = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.params.userId as string;
-  const result = await WalletService.unfreezeWallet(userId);
+  const result = await RewardService.setWalletStatus(userId, 'active');
   res.json(result);
 });

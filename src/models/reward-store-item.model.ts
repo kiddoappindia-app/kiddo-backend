@@ -4,14 +4,20 @@ export interface IRewardStoreItem {
   name: string;
   description: string;
   imageUrl: string;
+  previewImage: string;
+  thumbnail: string;
+  assetReference: string;
   category: Types.ObjectId;
   coinCost: number;
+  rewardPointCost: number;
   rarity: 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
   stock: number;
   isAvailable: boolean;
   isFeatured: boolean;
   unlockLevel: number;
-  isLimitedEdition: boolean;
+  isPremium: boolean;
+  limitedEdition: boolean;
+  giftable: boolean;
   seasonalEvent: Types.ObjectId | null;
   parentApprovalRequired: boolean;
   sortOrder: number;
@@ -28,8 +34,12 @@ const rewardStoreItemSchema = new Schema<IRewardStoreItem>(
     name: { type: String, required: true },
     description: { type: String, default: '' },
     imageUrl: { type: String, default: '' },
+    previewImage: { type: String, default: '' },
+    thumbnail: { type: String, default: '' },
+    assetReference: { type: String, default: '' },
     category: { type: Schema.Types.ObjectId, ref: 'RewardCategory', required: true },
-    coinCost: { type: Number, required: true, min: 1 },
+    coinCost: { type: Number, required: true, min: 0 },
+    rewardPointCost: { type: Number, default: 0, min: 0 },
     rarity: {
       type: String,
       enum: ['common', 'rare', 'epic', 'legendary', 'mythic'],
@@ -39,7 +49,9 @@ const rewardStoreItemSchema = new Schema<IRewardStoreItem>(
     isAvailable: { type: Boolean, default: true },
     isFeatured: { type: Boolean, default: false },
     unlockLevel: { type: Number, default: 1 },
-    isLimitedEdition: { type: Boolean, default: false },
+    isPremium: { type: Boolean, default: false },
+    limitedEdition: { type: Boolean, default: false },
+    giftable: { type: Boolean, default: true },
     seasonalEvent: { type: Schema.Types.ObjectId, ref: 'RewardCampaign', default: null },
     parentApprovalRequired: { type: Boolean, default: false },
     sortOrder: { type: Number, default: 0 },
@@ -54,5 +66,6 @@ const rewardStoreItemSchema = new Schema<IRewardStoreItem>(
 rewardStoreItemSchema.index({ category: 1, isAvailable: 1 });
 rewardStoreItemSchema.index({ isFeatured: 1, isAvailable: 1 });
 rewardStoreItemSchema.index({ rarity: 1 });
+rewardStoreItemSchema.index({ isPremium: 1 });
 
 export const RewardStoreItem = model<IRewardStoreItem>('RewardStoreItem', rewardStoreItemSchema);

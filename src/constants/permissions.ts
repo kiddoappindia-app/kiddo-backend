@@ -1,0 +1,27 @@
+export const PERMISSIONS = {
+  WALLET_VIEW: 'wallet:view',
+  WALLET_EDIT: 'wallet:edit',
+  WALLET_FREEZE: 'wallet:freeze',
+  WALLET_ADJUST: 'wallet:adjust',
+  STORE_MANAGE: 'store:manage',
+  STORE_PURCHASE: 'store:purchase',
+  STORE_APPROVE: 'store:approve',
+  REWARD_RULE_MANAGE: 'reward_rule:manage',
+  CAMPAIGN_MANAGE: 'campaign:manage',
+  ANALYTICS_VIEW: 'analytics:view',
+  ANALYTICS_FAMILY: 'analytics:family',
+  NOTIFICATION_SEND: 'notification:send',
+  NOTIFICATION_MANAGE: 'notification:manage',
+  TEACHER_REWARD: 'teacher:reward',
+  PARENT_APPROVE: 'parent:approve',
+  REWARD_VIEW: 'reward:view',
+  REWARD_EDIT: 'reward:edit',
+  REWARD_GIFT: 'reward:gift',
+  AVATAR_MANAGE: 'avatar:manage',
+  USER_MANAGE: 'user:manage',
+  TEACHER_MANAGE: 'teacher:manage',
+  TRANSACTION_VIEW: 'transaction:view',
+  ECONOMY_VIEW: 'economy:view',
+} as const;
+
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

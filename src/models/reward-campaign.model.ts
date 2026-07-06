@@ -9,6 +9,14 @@ export interface IRewardCampaign {
   bonusPointsMultiplier: number;
   bonusCoinsMultiplier: number;
   isActive: boolean;
+  banner?: string;
+  targetAudience?: 'all' | 'children' | 'parents' | 'teachers';
+  priority?: number;
+  notification?: {
+    enabled: boolean;
+    title: string;
+    body: string;
+  };
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -28,6 +36,14 @@ const rewardCampaignSchema = new Schema<IRewardCampaign>(
     bonusPointsMultiplier: { type: Number, default: 1.0 },
     bonusCoinsMultiplier: { type: Number, default: 1.0 },
     isActive: { type: Boolean, default: true },
+    banner: { type: String, default: '' },
+    targetAudience: { type: String, enum: ['all', 'children', 'parents', 'teachers'], default: 'all' },
+    priority: { type: Number, default: 0 },
+    notification: {
+      enabled: { type: Boolean, default: false },
+      title: { type: String, default: '' },
+      body: { type: String, default: '' },
+    },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true },
