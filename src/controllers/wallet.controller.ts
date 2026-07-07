@@ -2,14 +2,18 @@ import { Request, Response } from 'express';
 import { RewardService } from '../services/reward.service.js';
 import { asyncHandler } from '../utils/async-handler.js';
 
+function getParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value ?? '';
+}
+
 export const getMyWallet = asyncHandler(async (req: Request, res: Response) => {
   const wallet = await RewardService.getWallet(req.user!.id);
   res.json(wallet);
 });
 
 export const getTransactions = asyncHandler(async (req: Request, res: Response) => {
-  const page = req.query.page as string;
-  const limit = req.query.limit as string;
+  const page = getParam(req.query.page as string);
+  const limit = getParam(req.query.limit as string);
   const actionType = req.query.actionType as string | undefined;
   const result = await RewardService.getHistory(
     req.user!.id,
@@ -46,13 +50,13 @@ export const requestConversion = asyncHandler(async (req: Request, res: Response
 });
 
 export const approveConversion = asyncHandler(async (req: Request, res: Response) => {
-  const id = req.params.id as string;
+  const id = getParam(req.params.id);
   const result = await RewardService.approveConversion(id, req.user!.id);
   res.json(result);
 });
 
 export const rejectConversion = asyncHandler(async (req: Request, res: Response) => {
-  const id = req.params.id as string;
+  const id = getParam(req.params.id);
   const { reason } = req.body;
   const result = await RewardService.rejectConversion(id, req.user!.id, reason);
   res.json(result);
@@ -82,7 +86,7 @@ export const giftCoins = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const getChildWallet = asyncHandler(async (req: Request, res: Response) => {
-  const childId = req.params.childId as string;
+  const childId = getParam(req.params.childId);
   const wallet = await RewardService.getWallet(childId);
   res.json(wallet);
 });
@@ -97,4 +101,22 @@ export const spendCoins = asyncHandler(async (req: Request, res: Response) => {
     description ?? `Spent ${coins} RC`,
   );
   res.json(result);
+});
+
+export const freezeWallet = asyncHandler(async (req: Request, res: Response) => {
+  const userId = getParam(req.params.userId);
+  const result = await RewardService.setWalletStatus(userId, 'frozen');
+  res.json(result);
+});
+
+export const unfreezeWallet = asyncHandler(async (req: Request, res: Response) => {
+  const userId = getParam(req.params.userId);
+  const result = await RewardService.setWalletStatus(userId, 'active');
+  res.json(result);
+});
+
+export const getWalletAnalytics = asyncHandler(async (req: Request, res: Response) => {
+  const childId = getParam(req.params.childId);
+  const wallet = await RewardService.getWallet(childId);
+  res.json(wallet);
 });

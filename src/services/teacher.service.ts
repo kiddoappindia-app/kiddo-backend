@@ -556,6 +556,47 @@ export async function getChildTeacherInfo(childId: string) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Teacher: award specific action points via RewardService
+// ---------------------------------------------------------------------------
+
+export async function awardAction(
+  teacherId: string,
+  childId: string,
+  action: string,
+  label: string,
+  points?: number,
+) {
+  const teacher = await Teacher.findById(teacherId);
+  if (!teacher) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Teacher not found');
+  }
+
+  const child = await User.findOne({ _id: childId, role: 'child' });
+  if (!child) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Child not found');
+  }
+
+  const { RewardService } = await import('./reward.service.js');
+  const result = await RewardService.awardPoints(
+    childId,
+    action,
+    points,
+    'teacher',
+    undefined,
+    `${label} reward from ${teacher.fullName}`,
+    teacherId,
+  );
+
+  NotificationService.sendToUser(
+    childId,
+    `${label} Reward!`,
+    `You earned points for ${label} from ${teacher.fullName}!`,
+  ).catch(() => {});
+
+  return result;
+}
+
 function buildTeacherAuthPayload(teacher: any) {
   const accessToken = createAccessToken({
     sub: String(teacher._id),

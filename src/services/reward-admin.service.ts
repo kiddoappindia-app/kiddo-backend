@@ -1,13 +1,21 @@
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { RewardRule } from '../models/reward-rule.model.js';
 import { RewardCampaign } from '../models/reward-campaign.model.js';
 import { RewardConversion } from '../models/reward-conversion.model.js';
 import { RewardTransaction } from '../models/reward-transaction.model.js';
 import { WalletService } from './wallet.service.js';
+import { NotificationService } from './notification.service.js';
+import { AdminAuditService } from './admin-audit.service.js';
 
 export class RewardAdminService {
   static async listRules() {
     return RewardRule.find().sort({ actionType: 1 }).lean();
+  }
+
+  static async getRule(ruleId: string) {
+    const rule = await RewardRule.findById(ruleId).lean();
+    if (!rule) throw new Error('Rule not found');
+    return rule;
   }
 
   static async createRule(data: {
@@ -52,16 +60,35 @@ export class RewardAdminService {
     return rule.save();
   }
 
+  static async deleteRule(ruleId: string) {
+    const rule = await RewardRule.findByIdAndDelete(ruleId);
+    if (!rule) throw new Error('Rule not found');
+    return { deleted: true };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Campaign management
+  // ---------------------------------------------------------------------------
+
   static async listCampaigns() {
     return RewardCampaign.find().sort({ startDate: -1 }).lean();
+  }
+
+  static async getCampaign(campaignId: string) {
+    const campaign = await RewardCampaign.findById(campaignId).lean();
+    if (!campaign) throw new Error('Campaign not found');
+    return campaign;
   }
 
   static async createCampaign(data: {
     name: string; description?: string; type: string;
     startDate: Date; endDate: Date; bonusPointsMultiplier?: number;
-    bonusCoinsMultiplier?: number; adminId: string;
+    bonusCoinsMultiplier?: number; banner?: string;
+    targetAudience?: string; priority?: number;
+    notification?: { enabled: boolean; title: string; body: string };
+    adminId: string;
   }) {
-    return RewardCampaign.create({
+    const campaign = await RewardCampaign.create({
       name: data.name,
       description: data.description ?? '',
       type: data.type,
@@ -70,19 +97,108 @@ export class RewardAdminService {
       bonusPointsMultiplier: data.bonusPointsMultiplier ?? 1.0,
       bonusCoinsMultiplier: data.bonusCoinsMultiplier ?? 1.0,
       isActive: true,
+      banner: data.banner ?? '',
+      targetAudience: data.targetAudience ?? 'all',
+      priority: data.priority ?? 0,
+      notification: data.notification ?? { enabled: false, title: '', body: '' },
       createdBy: new Types.ObjectId(data.adminId),
     });
+
+    if (campaign.notification?.enabled && campaign.notification.title && campaign.notification.body) {
+      NotificationService.sendToFamilyParents(
+        'all',
+        campaign.notification.title,
+        campaign.notification.body,
+      ).catch(() => {});
+    }
+
+    await AdminAuditService.record({
+      actorId: data.adminId,
+      action: 'campaign.created',
+      targetType: 'campaign',
+      targetId: campaign._id.toString(),
+      metadata: { name: campaign.name, type: campaign.type },
+    });
+
+    return campaign;
   }
 
   static async updateCampaign(campaignId: string, data: Partial<{
     name: string; description: string; type: string;
     startDate: Date; endDate: Date; bonusPointsMultiplier: number;
     bonusCoinsMultiplier: number; isActive: boolean;
+    banner: string; targetAudience: string; priority: number;
+    notification: { enabled: boolean; title: string; body: string };
   }>) {
-    const campaign = await RewardCampaign.findByIdAndUpdate(campaignId, data, { new: true });
+    const campaign = await RewardCampaign.findByIdAndUpdate(campaignId, { $set: data }, { new: true });
     if (!campaign) throw new Error('Campaign not found');
     return campaign;
   }
+
+  static async deleteCampaign(campaignId: string) {
+    const campaign = await RewardCampaign.findByIdAndDelete(campaignId);
+    if (!campaign) throw new Error('Campaign not found');
+    return { deleted: true };
+  }
+
+  static async enableCampaign(campaignId: string) {
+    const campaign = await RewardCampaign.findByIdAndUpdate(
+      campaignId, { isActive: true }, { new: true },
+    );
+    if (!campaign) throw new Error('Campaign not found');
+    return campaign;
+  }
+
+  static async disableCampaign(campaignId: string) {
+    const campaign = await RewardCampaign.findByIdAndUpdate(
+      campaignId, { isActive: false }, { new: true },
+    );
+    if (!campaign) throw new Error('Campaign not found');
+    return campaign;
+  }
+
+  static async archiveCampaign(campaignId: string) {
+    const campaign = await RewardCampaign.findByIdAndUpdate(
+      campaignId, { isActive: false }, { new: true },
+    );
+    if (!campaign) throw new Error('Campaign not found');
+    return campaign;
+  }
+
+  static async duplicateCampaign(campaignId: string, adminId: string) {
+    const source = await RewardCampaign.findById(campaignId);
+    if (!source) throw new Error('Campaign not found');
+
+    const duplicate = await RewardCampaign.create({
+      name: `${source.name} (copy)`,
+      description: source.description,
+      type: source.type,
+      startDate: source.startDate,
+      endDate: source.endDate,
+      bonusPointsMultiplier: source.bonusPointsMultiplier,
+      bonusCoinsMultiplier: source.bonusCoinsMultiplier,
+      isActive: false,
+      banner: source.banner,
+      targetAudience: source.targetAudience,
+      priority: source.priority,
+      notification: source.notification,
+      createdBy: new Types.ObjectId(adminId),
+    });
+
+    return duplicate;
+  }
+
+  static async restoreCampaign(campaignId: string) {
+    const campaign = await RewardCampaign.findByIdAndUpdate(
+      campaignId, { isActive: true }, { new: true },
+    );
+    if (!campaign) throw new Error('Campaign not found');
+    return campaign;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Transaction logs & economy stats
+  // ---------------------------------------------------------------------------
 
   static async getTransactionLogs(
     page = 1,
@@ -104,6 +220,15 @@ export class RewardAdminService {
       .lean();
 
     return { transactions, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  static async getTransactionDetail(transactionId: string) {
+    const transaction = await RewardTransaction.findById(transactionId)
+      .populate('userId', 'firstName lastName role email')
+      .populate('createdBy', 'firstName lastName role')
+      .lean();
+    if (!transaction) throw new Error('Transaction not found');
+    return transaction;
   }
 
   static async getEconomyStats() {

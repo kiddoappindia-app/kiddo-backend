@@ -25,3 +25,25 @@ export function requirePermission(...permissions: Permission[]) {
     }
   };
 }
+
+export function requireAllPermissions(...permissions: Permission[]) {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(new ApiError(StatusCodes.UNAUTHORIZED, 'Unauthorized'));
+    }
+
+    try {
+      const userPermissions = await PermissionService.getPermissions(
+        req.user.id,
+        req.user.role,
+      );
+      const hasAll = permissions.every(p => userPermissions.has(p));
+      if (!hasAll) {
+        return next(new ApiError(StatusCodes.FORBIDDEN, 'Forbidden'));
+      }
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  };
+}

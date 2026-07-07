@@ -27,6 +27,7 @@ import rewardAdminRoutes from './routes/reward-admin.routes.js';
 import managementRoutes from './routes/management.routes.js';
 import scheduleRoutes from './routes/schedule.routes.js';
 import wakeUpRoutes from './routes/wake-up.routes.js';
+import gamificationRoutes from './routes/gamification.routes.js';
 import { swaggerSpec } from './docs/swagger.js';
 import { errorMiddleware, notFoundMiddleware } from './middlewares/error.middleware.js';
 import { env } from './config/env.js';
@@ -77,6 +78,7 @@ app.use('/api/v1/admin/economy', rewardAdminRoutes);
 app.use('/api/v1/management', managementRoutes);
 app.use('/api/v1/schedule', scheduleRoutes);
 app.use('/api/v1/wake-up', wakeUpRoutes);
+app.use('/api/v1/gamification', gamificationRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

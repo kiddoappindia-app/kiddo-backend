@@ -112,3 +112,49 @@ export const getChildTeacherInfo = asyncHandler(async (req: Request, res: Respon
   }
   res.status(StatusCodes.OK).json(info);
 });
+
+// ---------------------------------------------------------------------------
+// Teacher: specific reward actions
+// ---------------------------------------------------------------------------
+
+export const awardAttendance = asyncHandler(async (req: Request, res: Response) => {
+  const { childId } = req.body;
+  const result = await teacherService.awardAction(req.user!.id, childId, 'attendance_reward', 'Attendance');
+  res.status(StatusCodes.OK).json(result);
+});
+
+export const awardHomework = asyncHandler(async (req: Request, res: Response) => {
+  const { childId } = req.body;
+  const result = await teacherService.awardAction(req.user!.id, childId, 'homework_completed', 'Homework');
+  res.status(StatusCodes.OK).json(result);
+});
+
+export const awardQuiz = asyncHandler(async (req: Request, res: Response) => {
+  const { childId } = req.body;
+  const result = await teacherService.awardAction(req.user!.id, childId, 'quiz_completion', 'Quiz');
+  res.status(StatusCodes.OK).json(result);
+});
+
+export const awardBehaviour = asyncHandler(async (req: Request, res: Response) => {
+  const { childId } = req.body;
+  const result = await teacherService.awardAction(req.user!.id, childId, 'teacher_bonus', 'Behaviour');
+  res.status(StatusCodes.OK).json(result);
+});
+
+export const awardParticipation = asyncHandler(async (req: Request, res: Response) => {
+  const { childId } = req.body;
+  const result = await teacherService.awardAction(req.user!.id, childId, 'teacher_bonus', 'Participation');
+  res.status(StatusCodes.OK).json(result);
+});
+
+export const awardReading = asyncHandler(async (req: Request, res: Response) => {
+  const { childId } = req.body;
+  const result = await teacherService.awardAction(req.user!.id, childId, 'reading_goal', 'Reading');
+  res.status(StatusCodes.OK).json(result);
+});
+
+export const awardChallenge = asyncHandler(async (req: Request, res: Response) => {
+  const { childId } = req.body;
+  const result = await teacherService.awardAction(req.user!.id, childId, 'monthly_challenge', 'Challenge');
+  res.status(StatusCodes.OK).json(result);
+});

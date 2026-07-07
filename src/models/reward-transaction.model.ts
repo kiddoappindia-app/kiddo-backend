@@ -24,6 +24,18 @@ export const TRANSACTION_ACTION_TYPES = [
   'admin_adjustment',
   'gift_received',
   'gift_sent',
+  'teacher_attendance',
+  'teacher_homework',
+  'teacher_quiz',
+  'teacher_behaviour',
+  'teacher_participation',
+  'teacher_reading',
+  'teacher_challenge',
+  'campaign_bonus',
+  'achievement_reward',
+  'login_reward',
+  'challenge_reward',
+  'streak_bonus',
 ] as const;
 
 export type TransactionActionType = (typeof TRANSACTION_ACTION_TYPES)[number];
