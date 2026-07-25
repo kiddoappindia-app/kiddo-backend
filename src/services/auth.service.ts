@@ -7,6 +7,7 @@ import { firebaseAuth } from '../config/firebase-admin.js';
 import { Activity } from '../models/activity.model.js';
 import { Family } from '../models/family.model.js';
 import { User } from '../models/user.model.js';
+import { Wallet } from '../models/wallet.model.js';
 import { ApiError } from '../utils/api-error.js';
 import { createAccessToken, createRefreshToken } from './token.service.js';
 
@@ -109,6 +110,19 @@ export async function createChild(parentId: string, familyId: string, input: {
     school: input.school ?? '',
     avatar: input.avatar ?? 'space-ranger',
     childLoginCode,
+    weeklySchedule: {
+      monday: true,
+      tuesday: true,
+      wednesday: true,
+      thursday: true,
+      friday: true,
+      saturday: false,
+      sunday: false,
+    },
+    wakeUpSettings: {
+      targetTime: '06:30',
+      mandatory: true,
+    },
   });
 
   await Activity.create({
@@ -118,6 +132,9 @@ export async function createChild(parentId: string, familyId: string, input: {
     message: `Added child account for "${child.firstName}"`,
     metadata: { childId: child.id },
   });
+
+  // Auto-create reward wallet for the child
+  await Wallet.create({ childId: child._id });
 
   return child.toObject();
 }

@@ -21,6 +21,13 @@ import moodRoutes from './routes/mood.routes.js';
 import issueRoutes from './routes/issue.routes.js';
 import teacherRoutes from './routes/teacher.routes.js';
 import avatarRoutes from './routes/avatar.routes.js';
+import walletRoutes from './routes/wallet.routes.js';
+import rewardStoreRoutes from './routes/reward-store.routes.js';
+import rewardAdminRoutes from './routes/reward-admin.routes.js';
+import managementRoutes from './routes/management.routes.js';
+import scheduleRoutes from './routes/schedule.routes.js';
+import wakeUpRoutes from './routes/wake-up.routes.js';
+import gamificationRoutes from './routes/gamification.routes.js';
 import { swaggerSpec } from './docs/swagger.js';
 import { errorMiddleware, notFoundMiddleware } from './middlewares/error.middleware.js';
 import { env } from './config/env.js';
@@ -44,7 +51,11 @@ app.get('/api-docs.json', (_req, res) => {
   res.json(swaggerSpec);
 });
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  swaggerOptions: {
+    filter: true,
+  },
+}));
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/tasks', taskRoutes);
 app.use('/api/v1/rewards', rewardRoutes);
@@ -61,6 +72,13 @@ app.use('/api/v1/moods', moodRoutes);
 app.use('/api/v1/issues', issueRoutes);
 app.use('/api/v1/teacher', teacherRoutes);
 app.use('/api/v1/avatar', avatarRoutes);
+app.use('/api/v1/wallet', walletRoutes);
+app.use('/api/v1/store', rewardStoreRoutes);
+app.use('/api/v1/admin/economy', rewardAdminRoutes);
+app.use('/api/v1/management', managementRoutes);
+app.use('/api/v1/schedule', scheduleRoutes);
+app.use('/api/v1/wake-up', wakeUpRoutes);
+app.use('/api/v1/gamification', gamificationRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

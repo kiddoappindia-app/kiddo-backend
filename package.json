@@ -10,7 +10,8 @@
     "lint": "tsc --noEmit -p tsconfig.json",
     "seed": "tsx src/seed.ts",
     "seed:admin": "tsx src/seedAdmin.ts",
-    "seed:teachers": "tsx src/seedTeacher.ts"
+    "seed:teachers": "tsx src/seedTeacher.ts",
+"seed:reward": "tsx src/seedRewardEconomy.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

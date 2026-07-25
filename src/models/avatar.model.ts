@@ -39,6 +39,4 @@ const avatarSchema = new Schema(
   { timestamps: true },
 );
 
-avatarSchema.index({ childId: 1 });
-
 export const Avatar = model('Avatar', avatarSchema);

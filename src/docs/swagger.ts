@@ -23,6 +23,9 @@ export const swaggerSpec = swaggerJSDoc({
       { name: 'Activity', description: 'Family activity feed' },
       { name: 'Powerups', description: 'Educational power-ups (Focus Timer, Brain Breaks, Knowledge Quests)' },
       { name: 'Interactions', description: 'High-fives and cheers between family members' },
+      { name: 'Wallet', description: 'Reward Points, Redeem Coins, and wallet management' },
+      { name: 'Reward Store', description: 'Browse and purchase items from the Reward Store' },
+      { name: 'Reward Admin', description: 'Admin control over the reward economy' },
     ],
     components: {
       securitySchemes: {
@@ -223,6 +226,163 @@ export const swaggerSpec = swaggerJSDoc({
             avatar: { type: 'string' },
             standard: { type: 'number', minimum: 1, maximum: 12 },
             isActive: { type: 'boolean' },
+          },
+        },
+        WalletResponse: {
+          type: 'object',
+          properties: {
+            childId: { type: 'string' },
+            rewardPoints: { type: 'number' },
+            redeemCoins: { type: 'number' },
+            lifetimeRewardPointsEarned: { type: 'number' },
+            lifetimeRedeemCoinsEarned: { type: 'number' },
+            lifetimeCoinsSpent: { type: 'number' },
+            totalConversions: { type: 'number' },
+            pendingConversions: { type: 'number' },
+            pointsConverted: { type: 'number' },
+            currentLevel: { type: 'number' },
+            experience: { type: 'number' },
+            status: { type: 'string', enum: ['active', 'frozen', 'suspended'] },
+            dailyConversionUsed: { type: 'number' },
+            weeklyConversionUsed: { type: 'number' },
+            monthlyConversionUsed: { type: 'number' },
+          },
+        },
+        ConvertPointsRequest: {
+          type: 'object',
+          required: ['pointsToConvert'],
+          properties: {
+            pointsToConvert: { type: 'number', description: 'Must be in multiples of 1000' },
+          },
+        },
+        ConversionResponse: {
+          type: 'object',
+          properties: {
+            conversionId: { type: 'string' },
+            status: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
+            rewardPoints: { type: 'number' },
+            redeemCoins: { type: 'number' },
+            coinsAwarded: { type: 'number' },
+          },
+        },
+        RewardTransactionResponse: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string' },
+            userId: { type: 'string' },
+            actionType: { type: 'string' },
+            rewardPoints: { type: 'number' },
+            redeemCoins: { type: 'number' },
+            balanceBefore: {
+              type: 'object',
+              properties: { rewardPoints: { type: 'number' }, redeemCoins: { type: 'number' } },
+            },
+            balanceAfter: {
+              type: 'object',
+              properties: { rewardPoints: { type: 'number' }, redeemCoins: { type: 'number' } },
+            },
+            description: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        GiftPointsRequest: {
+          type: 'object',
+          required: ['receiverId', 'amount'],
+          properties: {
+            receiverId: { type: 'string' },
+            amount: { type: 'number' },
+            message: { type: 'string' },
+          },
+        },
+        GiftCoinsRequest: {
+          type: 'object',
+          required: ['childId', 'amount'],
+          properties: {
+            childId: { type: 'string' },
+            amount: { type: 'number' },
+            message: { type: 'string' },
+          },
+        },
+        RewardStoreItemResponse: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string' },
+            name: { type: 'string' },
+            description: { type: 'string' },
+            imageUrl: { type: 'string' },
+            category: { type: 'object' },
+            coinCost: { type: 'number' },
+            rarity: { type: 'string', enum: ['common', 'rare', 'epic', 'legendary', 'mythic'] },
+            isOwned: { type: 'boolean' },
+            isFeatured: { type: 'boolean' },
+            unlockLevel: { type: 'number' },
+            isLimitedEdition: { type: 'boolean' },
+          },
+        },
+        PurchaseItemRequest: {
+          type: 'object',
+          required: ['itemId'],
+          properties: {
+            itemId: { type: 'string' },
+          },
+        },
+        RewardCategoryResponse: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string' },
+            name: { type: 'string' },
+            slug: { type: 'string' },
+            type: { type: 'string', enum: ['avatar_customization', 'goodies', 'physical_rewards'] },
+            icon: { type: 'string' },
+            sortOrder: { type: 'number' },
+          },
+        },
+        RewardRuleResponse: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string' },
+            actionType: { type: 'string' },
+            name: { type: 'string' },
+            basePoints: { type: 'number' },
+            isActive: { type: 'boolean' },
+            frequency: { type: 'string' },
+            maxPerDay: { type: 'number' },
+            maxPerWeek: { type: 'number' },
+            maxPerMonth: { type: 'number' },
+          },
+        },
+        CreateRewardRuleRequest: {
+          type: 'object',
+          required: ['actionType', 'name', 'basePoints'],
+          properties: {
+            actionType: { type: 'string' },
+            name: { type: 'string' },
+            description: { type: 'string' },
+            basePoints: { type: 'number' },
+            frequency: { type: 'string', enum: ['once_per_day', 'once_per_week', 'once_per_month', 'unlimited'] },
+            maxPerDay: { type: 'number' },
+            maxPerWeek: { type: 'number' },
+            maxPerMonth: { type: 'number' },
+          },
+        },
+        AdjustBalanceRequest: {
+          type: 'object',
+          properties: {
+            pointsDelta: { type: 'number', description: 'Can be negative to deduct' },
+            coinsDelta: { type: 'number', description: 'Can be negative to deduct' },
+            reason: { type: 'string' },
+          },
+        },
+        InventoryResponse: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string' },
+            itemId: { type: 'string' },
+            itemName: { type: 'string' },
+            coinCost: { type: 'number' },
+            rarity: { type: 'string' },
+            isEquipped: { type: 'boolean' },
+            purchasedAt: { type: 'string', format: 'date-time' },
           },
         },
       },
@@ -939,6 +1099,253 @@ export const swaggerSpec = swaggerJSDoc({
               description: 'List of interactions',
             },
           },
+        },
+      },
+      '/wallet/me': {
+        get: {
+          tags: ['Wallet'],
+          summary: 'Get own wallet with current Reward Points and Redeem Coins',
+          responses: { '200': { description: 'Wallet data', content: { 'application/json': { schema: { $ref: '#/components/schemas/WalletResponse' } } } } },
+        },
+      },
+      '/wallet/transactions': {
+        get: {
+          tags: ['Wallet'],
+          summary: 'Get transaction history',
+          parameters: [
+            { in: 'query', name: 'page', schema: { type: 'number' } },
+            { in: 'query', name: 'limit', schema: { type: 'number' } },
+            { in: 'query', name: 'actionType', schema: { type: 'string' } },
+          ],
+          responses: { '200': { description: 'Paginated transaction list' } },
+        },
+      },
+      '/wallet/convert': {
+        post: {
+          tags: ['Wallet'],
+          summary: 'Convert Reward Points to Redeem Coins (child)',
+          requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/ConvertPointsRequest' } } } },
+          responses: { '200': { description: 'Conversion result', content: { 'application/json': { schema: { $ref: '#/components/schemas/ConversionResponse' } } } } },
+        },
+      },
+      '/wallet/convert/request': {
+        post: {
+          tags: ['Wallet'],
+          summary: 'Request conversion with parent approval (child)',
+          requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/ConvertPointsRequest' } } } },
+          responses: { '200': { description: 'Pending conversion created' } },
+        },
+      },
+      '/wallet/conversions/pending': {
+        get: {
+          tags: ['Wallet'],
+          summary: 'Get pending conversions for family (parent)',
+          responses: { '200': { description: 'List of pending conversions' } },
+        },
+      },
+      '/wallet/conversions/{id}/approve': {
+        post: {
+          tags: ['Wallet'],
+          summary: 'Approve a pending conversion (parent)',
+          parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Conversion approved' } },
+        },
+      },
+      '/wallet/conversions/{id}/reject': {
+        post: {
+          tags: ['Wallet'],
+          summary: 'Reject a pending conversion (parent)',
+          parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+          requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { reason: { type: 'string' } } } } } },
+          responses: { '200': { description: 'Conversion rejected, points restored' } },
+        },
+      },
+      '/wallet/gift/points': {
+        post: {
+          tags: ['Wallet'],
+          summary: 'Gift Reward Points to a child (parent/teacher)',
+          requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/GiftPointsRequest' } } } },
+          responses: { '200': { description: 'Points gifted' } },
+        },
+      },
+      '/wallet/gift/coins': {
+        post: {
+          tags: ['Wallet'],
+          summary: 'Gift Redeem Coins to a child (parent)',
+          requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/GiftCoinsRequest' } } } },
+          responses: { '200': { description: 'Coins gifted' } },
+        },
+      },
+      '/wallet/child/{childId}': {
+        get: {
+          tags: ['Wallet'],
+          summary: 'View a child wallet (parent/admin)',
+          parameters: [{ in: 'path', name: 'childId', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Child wallet data' } },
+        },
+      },
+      '/store/categories': {
+        get: {
+          tags: ['Reward Store'],
+          summary: 'List reward store categories',
+          parameters: [{ in: 'query', name: 'type', schema: { type: 'string', enum: ['avatar_customization', 'goodies', 'physical_rewards'] } }],
+          responses: { '200': { description: 'Category list', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/RewardCategoryResponse' } } } } } },
+        },
+        post: {
+          tags: ['Reward Admin'],
+          summary: 'Create a new store category (admin)',
+          responses: { '201': { description: 'Category created' } },
+        },
+      },
+      '/store/items': {
+        get: {
+          tags: ['Reward Store'],
+          summary: 'List store items with filters',
+          parameters: [
+            { in: 'query', name: 'category', schema: { type: 'string' } },
+            { in: 'query', name: 'rarity', schema: { type: 'string' } },
+            { in: 'query', name: 'search', schema: { type: 'string' } },
+          ],
+          responses: { '200': { description: 'Item list', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/RewardStoreItemResponse' } } } } } },
+        },
+        post: {
+          tags: ['Reward Admin'],
+          summary: 'Create a new store item (admin)',
+          responses: { '201': { description: 'Item created' } },
+        },
+      },
+      '/store/items/featured': {
+        get: {
+          tags: ['Reward Store'],
+          summary: 'Get featured items carousel',
+          responses: { '200': { description: 'Featured items' } },
+        },
+      },
+      '/store/items/recent': {
+        get: {
+          tags: ['Reward Store'],
+          summary: 'Get recently added items',
+          responses: { '200': { description: 'Recent items' } },
+        },
+      },
+      '/store/items/{id}': {
+        get: {
+          tags: ['Reward Store'],
+          summary: 'Get item details',
+          parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Item detail', content: { 'application/json': { schema: { $ref: '#/components/schemas/RewardStoreItemResponse' } } } } },
+        },
+      },
+      '/store/purchase': {
+        post: {
+          tags: ['Reward Store'],
+          summary: 'Purchase an item using Redeem Coins (child)',
+          requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/PurchaseItemRequest' } } } },
+          responses: { '200': { description: 'Purchase successful' } },
+        },
+      },
+      '/store/inventory': {
+        get: {
+          tags: ['Reward Store'],
+          summary: 'Get purchased inventory',
+          parameters: [{ in: 'query', name: 'categoryType', schema: { type: 'string' } }],
+          responses: { '200': { description: 'Inventory list', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/InventoryResponse' } } } } } },
+        },
+      },
+      '/store/inventory/{id}/equip': {
+        post: {
+          tags: ['Reward Store'],
+          summary: 'Toggle equip/unequip an owned item',
+          parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Equip status toggled' } },
+        },
+      },
+      '/admin/economy/rules': {
+        get: {
+          tags: ['Reward Admin'],
+          summary: 'List all reward point rules',
+          responses: { '200': { description: 'Rule list', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/RewardRuleResponse' } } } } } },
+        },
+        post: {
+          tags: ['Reward Admin'],
+          summary: 'Create a new reward point rule',
+          requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CreateRewardRuleRequest' } } } },
+          responses: { '201': { description: 'Rule created' } },
+        },
+      },
+      '/admin/economy/rules/{id}': {
+        patch: {
+          tags: ['Reward Admin'],
+          summary: 'Update a reward point rule',
+          parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+          requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/CreateRewardRuleRequest' } } } },
+          responses: { '200': { description: 'Rule updated' } },
+        },
+      },
+      '/admin/economy/transactions': {
+        get: {
+          tags: ['Reward Admin'],
+          summary: 'View all transaction logs',
+          parameters: [
+            { in: 'query', name: 'page', schema: { type: 'number' } },
+            { in: 'query', name: 'limit', schema: { type: 'number' } },
+            { in: 'query', name: 'actionType', schema: { type: 'string' } },
+            { in: 'query', name: 'userId', schema: { type: 'string' } },
+          ],
+          responses: { '200': { description: 'Paginated transaction logs' } },
+        },
+      },
+      '/admin/economy/stats': {
+        get: {
+          tags: ['Reward Admin'],
+          summary: 'Get economy analytics and stats',
+          responses: { '200': { description: 'Economy stats' } },
+        },
+      },
+      '/admin/economy/wallet/{userId}/adjust': {
+        post: {
+          tags: ['Reward Admin'],
+          summary: 'Adjust user balance (add/deduct points or coins)',
+          parameters: [{ in: 'path', name: 'userId', required: true, schema: { type: 'string' } }],
+          requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/AdjustBalanceRequest' } } } },
+          responses: { '200': { description: 'Balance adjusted' } },
+        },
+      },
+      '/admin/economy/wallet/{userId}/freeze': {
+        post: {
+          tags: ['Reward Admin'],
+          summary: 'Freeze a child wallet to disable spending',
+          parameters: [{ in: 'path', name: 'userId', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Wallet frozen' } },
+        },
+      },
+      '/admin/economy/wallet/{userId}/unfreeze': {
+        post: {
+          tags: ['Reward Admin'],
+          summary: 'Unfreeze a child wallet',
+          parameters: [{ in: 'path', name: 'userId', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Wallet unfrozen' } },
+        },
+      },
+      '/admin/economy/campaigns': {
+        get: {
+          tags: ['Reward Admin'],
+          summary: 'List all reward campaigns',
+          responses: { '200': { description: 'Campaign list' } },
+        },
+        post: {
+          tags: ['Reward Admin'],
+          summary: 'Create a reward campaign or seasonal event',
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { name: { type: 'string' }, type: { type: 'string', enum: ['seasonal', 'limited_time', 'promotional'] }, startDate: { type: 'string', format: 'date-time' }, endDate: { type: 'string', format: 'date-time' }, bonusPointsMultiplier: { type: 'number' }, bonusCoinsMultiplier: { type: 'number' } } } } } },
+          responses: { '201': { description: 'Campaign created' } },
+        },
+      },
+      '/admin/economy/campaigns/{id}': {
+        patch: {
+          tags: ['Reward Admin'],
+          summary: 'Update a campaign',
+          parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Campaign updated' } },
         },
       },
     },

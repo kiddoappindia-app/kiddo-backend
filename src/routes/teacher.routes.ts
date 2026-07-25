@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import * as teacherController from '../controllers/teacher.controller.js';
 import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+import { requirePermission } from '../middlewares/permission.middleware.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 import { ROLES } from '../constants/roles.js';
 
 const router = Router();
@@ -33,8 +35,17 @@ router.delete('/classes/:classId/students/:childId', authorize(ROLES.TEACHER), t
 router.post('/tasks', authorize(ROLES.TEACHER), teacherController.createTeacherTask);
 
 // Rewards
-router.post('/bonus', authorize(ROLES.TEACHER), teacherController.awardBonusPoints);
+router.post('/bonus', authorize(ROLES.TEACHER), requirePermission(PERMISSIONS.TEACHER_REWARD), teacherController.awardBonusPoints);
 router.post('/badges', authorize(ROLES.TEACHER), teacherController.awardBadge);
+
+// Specific award actions
+router.post('/award/attendance', authorize(ROLES.TEACHER), requirePermission(PERMISSIONS.TEACHER_AWARD_ATTENDANCE), teacherController.awardAttendance);
+router.post('/award/homework', authorize(ROLES.TEACHER), requirePermission(PERMISSIONS.TEACHER_AWARD_HOMEWORK), teacherController.awardHomework);
+router.post('/award/quiz', authorize(ROLES.TEACHER), requirePermission(PERMISSIONS.TEACHER_AWARD_QUIZ), teacherController.awardQuiz);
+router.post('/award/behaviour', authorize(ROLES.TEACHER), requirePermission(PERMISSIONS.TEACHER_AWARD_BEHAVIOUR), teacherController.awardBehaviour);
+router.post('/award/participation', authorize(ROLES.TEACHER), requirePermission(PERMISSIONS.TEACHER_AWARD_PARTICIPATION), teacherController.awardParticipation);
+router.post('/award/reading', authorize(ROLES.TEACHER), requirePermission(PERMISSIONS.TEACHER_AWARD_READING), teacherController.awardReading);
+router.post('/award/challenge', authorize(ROLES.TEACHER), requirePermission(PERMISSIONS.TEACHER_AWARD_CHALLENGE), teacherController.awardChallenge);
 
 // Leaderboard
 router.get('/leaderboard/:classId', authorize(ROLES.TEACHER, ROLES.PARENT, ROLES.CHILD), teacherController.getClassLeaderboard);
