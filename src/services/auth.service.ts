@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { StatusCodes } from 'http-status-codes';
 import { nanoid } from 'nanoid';
 import { ROLES, type Role } from '../constants/roles.js';
@@ -6,6 +7,7 @@ import { env } from '../config/env.js';
 import { firebaseAuth } from '../config/firebase-admin.js';
 import { Activity } from '../models/activity.model.js';
 import { Family } from '../models/family.model.js';
+import { Session } from '../models/session.model.js';
 import { User } from '../models/user.model.js';
 import { Wallet } from '../models/wallet.model.js';
 import { ApiError } from '../utils/api-error.js';
@@ -38,6 +40,7 @@ export async function registerParent(input: {
   const family = await Family.create({
     name: input.familyName,
     inviteCode: nanoid(8).toUpperCase(),
+    familyCode: `FAM-${nanoid(6).toUpperCase()}`,
   });
 
   const passwordHash = await bcrypt.hash(input.password, 10);
@@ -49,6 +52,9 @@ export async function registerParent(input: {
     firstName: input.firstName,
     lastName: input.lastName ?? '',
   });
+
+  family.parentId = user._id;
+  await family.save();
 
   return buildAuthPayload(user.id, ROLES.PARENT, String(family._id), user);
 }
@@ -143,19 +149,25 @@ export async function getProfile(userId: string) {
   return User.findById(userId).select('-passwordHash').lean();
 }
 
-export async function childCodeLogin(code: string) {
+export async function childCodeLogin(code: string, deviceId?: string, deviceInfo?: { platform?: string; osVersion?: string; appVersion?: string }) {
   const normalizedCode = code.trim().toUpperCase();
   const user = await User.findOne({
     childLoginCode: normalizedCode,
     role: ROLES.CHILD,
     isActive: true,
+    loginDisabled: { $ne: true },
   });
 
   if (!user) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, 'Invalid child access code');
   }
 
-  return buildAuthPayload(user.id, ROLES.CHILD, user.familyId ? String(user.familyId) : undefined, user);
+  user.lastLoginDate = new Date();
+  await user.save();
+
+  const session = await createSession(user.id, user.familyId ? String(user.familyId) : undefined, deviceId, deviceInfo);
+
+  return buildAuthPayload(user.id, ROLES.CHILD, user.familyId ? String(user.familyId) : undefined, user, session.refreshToken);
 }
 
 export async function regenerateChildCode(userId: string, familyId: string) {
@@ -239,6 +251,7 @@ export async function firebaseLogin(input: {
     const family = await Family.create({
       name: input.familyName?.trim() || `${derivedFirstName}'s Family`,
       inviteCode: nanoid(8).toUpperCase(),
+      familyCode: `FAM-${nanoid(6).toUpperCase()}`,
     });
 
     user = await User.create({
@@ -249,6 +262,9 @@ export async function firebaseLogin(input: {
       firstName: input.firstName?.trim() || derivedFirstName,
       lastName: input.lastName?.trim() || rest.join(' '),
     });
+
+    family.parentId = user._id;
+    await family.save();
   } else if (!user.firebaseUid) {
     user.firebaseUid = firebaseUid;
     await user.save();
@@ -294,6 +310,7 @@ async function registerParentWithFirebase(input: {
   const family = await Family.create({
     name: input.familyName,
     inviteCode: nanoid(8).toUpperCase(),
+    familyCode: `FAM-${nanoid(6).toUpperCase()}`,
   });
 
   const user = await User.create({
@@ -304,6 +321,9 @@ async function registerParentWithFirebase(input: {
     firstName: input.firstName,
     lastName: input.lastName ?? '',
   });
+
+  family.parentId = user._id;
+  await family.save();
 
   return buildAuthPayload(user.id, ROLES.PARENT, String(family._id), user);
 }
@@ -341,14 +361,19 @@ function buildAuthPayload(userId: string, role: Role, familyId: string | undefin
   patternWins?: number;
   patternGamesPlayed?: number;
   school?: string | null;
-}) {
+  age?: number | null;
+  birthday?: Date | null;
+  permissions?: Record<string, unknown> | null;
+  settings?: Record<string, unknown> | null;
+  loginDisabled?: boolean | null;
+}, sessionRefreshToken?: string) {
   const accessToken = createAccessToken({
     sub: userId,
     role,
     familyId,
   });
 
-  const refreshToken = createRefreshToken({
+  const refreshToken = sessionRefreshToken || createRefreshToken({
     sub: userId,
     role,
     familyId,
@@ -371,6 +396,10 @@ function buildAuthPayload(userId: string, role: Role, familyId: string | undefin
       school: user.school ?? undefined,
       points: user.points ?? 0,
       streak: user.streak ?? 0,
+      age: user.age ?? undefined,
+      birthday: user.birthday ?? undefined,
+      permissions: user.permissions ?? undefined,
+      settings: user.settings ?? undefined,
       chessWins: user.chessWins ?? 0,
       chessGamesPlayed: user.chessGamesPlayed ?? 0,
       memoryWins: user.memoryWins ?? 0,
@@ -382,6 +411,297 @@ function buildAuthPayload(userId: string, role: Role, familyId: string | undefin
       lastChessRewardAt: user.lastChessRewardAt ?? undefined,
     },
   };
+}
+
+// ===== PIN LOGIN =====
+export async function setChildPin(childId: string, familyId: string, pin: string) {
+  const child = await User.findOne({ _id: childId, familyId, role: ROLES.CHILD });
+  if (!child) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Child not found');
+  }
+
+  const pinHash = await bcrypt.hash(pin, 10);
+  child.pin = pinHash;
+  child.pinAttempts = 0;
+  child.pinLockedUntil = undefined;
+  await child.save();
+
+  return { success: true };
+}
+
+export async function childPinLogin(pin: string, deviceId?: string, deviceInfo?: { platform?: string; osVersion?: string; appVersion?: string }) {
+  const child = await User.findOne({
+    pin: { $exists: true, $ne: null },
+    role: ROLES.CHILD,
+    isActive: true,
+    loginDisabled: { $ne: true },
+  });
+
+  if (!child || !child.pin) {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, 'PIN login is not available');
+  }
+
+  if (child.pinLockedUntil && child.pinLockedUntil > new Date()) {
+    throw new ApiError(StatusCodes.TOO_MANY_REQUESTS, 'Account is temporarily locked due to too many failed attempts');
+  }
+
+  const isValid = await bcrypt.compare(pin, child.pin);
+  if (!isValid) {
+    child.pinAttempts = (child.pinAttempts || 0) + 1;
+    if (child.pinAttempts >= 5) {
+      child.pinLockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+      child.pinAttempts = 0;
+    }
+    await child.save();
+    throw new ApiError(StatusCodes.UNAUTHORIZED, 'Invalid PIN');
+  }
+
+  child.pinAttempts = 0;
+  child.pinLockedUntil = undefined;
+  child.lastLoginDate = new Date();
+  await child.save();
+
+  const session = await createSession(child.id, child.familyId ? String(child.familyId) : undefined, deviceId, deviceInfo);
+
+  return buildAuthPayload(child.id, ROLES.CHILD, child.familyId ? String(child.familyId) : undefined, child, session.refreshToken);
+}
+
+// ===== SESSION MANAGEMENT =====
+export async function createSession(
+  userId: string,
+  familyId: string | undefined,
+  deviceId?: string,
+  deviceInfo?: { platform?: string; osVersion?: string; appVersion?: string },
+) {
+  const refreshToken = createRefreshToken({ sub: userId, role: ROLES.CHILD, familyId });
+  const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+
+  await Session.create({
+    userId,
+    familyId,
+    refreshTokenHash,
+    deviceId: deviceId || 'unknown',
+    platform: (deviceInfo?.platform as 'android' | 'ios' | 'web') || 'android',
+    ip: '0.0.0.0',
+    userAgent: `${deviceInfo?.platform || 'unknown'}/${deviceInfo?.osVersion || 'unknown'}`,
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  });
+
+  return { refreshToken };
+}
+
+export async function refreshAccessToken(refreshToken: string) {
+  let payload;
+  try {
+    const jwt = await import('jsonwebtoken');
+    payload = jwt.default.verify(refreshToken, env.JWT_REFRESH_SECRET) as { sub: string; role: Role; familyId?: string };
+  } catch {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, 'Invalid or expired refresh token');
+  }
+
+  const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  const session = await Session.findOne({ refreshTokenHash, isActive: true });
+
+  if (!session) {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, 'Session not found or revoked');
+  }
+
+  if (session.expiresAt < new Date()) {
+    session.isActive = false;
+    session.revokedAt = new Date();
+    session.revokeReason = 'expired';
+    await session.save();
+    throw new ApiError(StatusCodes.UNAUTHORIZED, 'Session has expired');
+  }
+
+  const user = await User.findById(payload.sub);
+  if (!user || !user.isActive) {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, 'User not found or deactivated');
+  }
+
+  const newAccessToken = createAccessToken({
+    sub: payload.sub,
+    role: payload.role,
+    familyId: payload.familyId,
+  });
+
+  session.lastActiveAt = new Date();
+  await session.save();
+
+  return {
+    accessToken: newAccessToken,
+    refreshToken,
+  };
+}
+
+export async function revokeSession(sessionId: string, userId: string) {
+  const session = await Session.findOne({ _id: sessionId, userId });
+  if (!session) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Session not found');
+  }
+
+  session.isActive = false;
+  session.revokedAt = new Date();
+  session.revokeReason = 'manual';
+  await session.save();
+
+  return { success: true };
+}
+
+export async function revokeAllSessions(userId: string) {
+  await Session.updateMany(
+    { userId, isActive: true },
+    { isActive: false, revokedAt: new Date(), revokeReason: 'logout_all' },
+  );
+  return { success: true };
+}
+
+export async function getActiveSessions(userId: string) {
+  return Session.find({
+    userId,
+    isActive: true,
+    expiresAt: { $gt: new Date() },
+  })
+    .select('deviceId platform ip userAgent lastActiveAt createdAt')
+    .sort({ lastActiveAt: -1 })
+    .lean();
+}
+
+// ===== CHILD MANAGEMENT =====
+export async function updateChildProfile(
+  childId: string,
+  familyId: string,
+  input: {
+    firstName?: string;
+    lastName?: string;
+    avatar?: string;
+    age?: number;
+    birthday?: Date;
+    grade?: number;
+    school?: string;
+  },
+) {
+  const child = await User.findOne({ _id: childId, familyId, role: ROLES.CHILD });
+  if (!child) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Child not found');
+  }
+
+  if (input.firstName) child.firstName = input.firstName;
+  if (input.lastName !== undefined) child.lastName = input.lastName;
+  if (input.avatar) child.avatar = input.avatar;
+  if (input.age !== undefined) child.age = input.age;
+  if (input.birthday) child.birthday = input.birthday;
+  if (input.grade !== undefined) child.standard = input.grade;
+  if (input.school !== undefined) child.school = input.school;
+
+  await child.save();
+  return child.toObject();
+}
+
+export async function archiveChild(childId: string, familyId: string) {
+  const child = await User.findOne({ _id: childId, familyId, role: ROLES.CHILD });
+  if (!child) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Child not found');
+  }
+
+  child.archivedAt = new Date();
+  child.isActive = false;
+  child.loginDisabled = true;
+  await child.save();
+
+  await Activity.create({
+    familyId,
+    actorId: familyId,
+    type: 'child_updated',
+    message: `"${child.firstName}" was archived`,
+    metadata: { childId, action: 'archive' },
+  });
+
+  return { success: true };
+}
+
+export async function deleteChild(childId: string, familyId: string) {
+  const child = await User.findOne({ _id: childId, familyId, role: ROLES.CHILD });
+  if (!child) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Child not found');
+  }
+
+  await User.findByIdAndDelete(childId);
+
+  const { Device } = await import('../models/device.model.js');
+  await Device.deleteMany({ childId });
+
+  const { Session } = await import('../models/session.model.js');
+  await Session.deleteMany({ userId: childId });
+
+  await Activity.create({
+    familyId,
+    actorId: familyId,
+    type: 'child_updated',
+    message: `"${child.firstName}" was removed from the family`,
+    metadata: { childId, action: 'delete' },
+  });
+
+  return { success: true };
+}
+
+export async function disableChildLogin(childId: string, familyId: string) {
+  const child = await User.findOne({ _id: childId, familyId, role: ROLES.CHILD });
+  if (!child) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Child not found');
+  }
+
+  child.loginDisabled = !child.loginDisabled;
+  await child.save();
+
+  if (child.loginDisabled) {
+    const { Session } = await import('../models/session.model.js');
+    await Session.updateMany(
+      { userId: childId, isActive: true },
+      { isActive: false, revokedAt: new Date(), revokeReason: 'parent_disabled' },
+    );
+  }
+
+  return { loginDisabled: child.loginDisabled };
+}
+
+export async function transferChild(childId: string, fromFamilyId: string, toFamilyId: string) {
+  const child = await User.findOne({ _id: childId, familyId: fromFamilyId, role: ROLES.CHILD });
+  if (!child) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Child not found in this family');
+  }
+
+  const toFamily = await Family.findById(toFamilyId);
+  if (!toFamily) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Target family not found');
+  }
+
+  child.familyId = toFamily._id;
+  await child.save();
+
+  await Activity.create({
+    familyId: fromFamilyId,
+    actorId: fromFamilyId,
+    type: 'child_updated',
+    message: `"${child.firstName}" was transferred to another family`,
+    metadata: { childId, action: 'transfer', toFamilyId },
+  });
+
+  return { success: true };
+}
+
+export async function resetChildPin(childId: string, familyId: string) {
+  const child = await User.findOne({ _id: childId, familyId, role: ROLES.CHILD });
+  if (!child) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Child not found');
+  }
+
+  child.pin = undefined;
+  child.pinAttempts = 0;
+  child.pinLockedUntil = undefined;
+  await child.save();
+
+  return { success: true };
 }
 
 function isAdminEmail(email: string) {

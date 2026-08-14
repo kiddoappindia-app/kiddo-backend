@@ -44,12 +44,12 @@ export async function createTask(
     description: input.description ?? '',
     category: input.category ?? 'General',
     points: input.points,
+    basePoints: input.points,
     skillTag: input.skillTag ?? '',
-    requiresPhoto: input.requiresPhoto ?? false,
+    proofRequired: input.requiresPhoto ? ['photo'] : [],
     dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
-    rewardUnlockThreshold: input.rewardUnlockThreshold ?? 0,
     isRecurring: input.isRecurring ?? false,
-    recurrenceInterval: input.recurrenceInterval ?? 'daily',
+    recurrenceType: input.recurrenceInterval ?? 'daily',
   });
 
   await Activity.create({
@@ -163,9 +163,9 @@ export async function updateTask(
     // Handle Recurrence
     if (task.isRecurring) {
       const nextDueDate = new Date(task.dueDate || new Date());
-      if (task.recurrenceInterval === 'weekly') {
+      if (task.recurrenceType === 'weekly') {
         nextDueDate.setDate(nextDueDate.getDate() + 7);
-      } else if (task.recurrenceInterval === 'monthly') {
+      } else if (task.recurrenceType === 'monthly') {
         nextDueDate.setMonth(nextDueDate.getMonth() + 1);
       } else {
         // Default to daily
@@ -180,10 +180,11 @@ export async function updateTask(
         description: task.description,
         category: task.category,
         points: task.points,
+        basePoints: task.basePoints,
         skillTag: task.skillTag,
-        requiresPhoto: task.requiresPhoto,
+        proofRequired: task.proofRequired,
         isRecurring: true,
-        recurrenceInterval: task.recurrenceInterval,
+        recurrenceType: task.recurrenceType,
         dueDate: nextDueDate,
         status: 'todo',
       });

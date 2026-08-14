@@ -1,6 +1,6 @@
 import swaggerJSDoc from 'swagger-jsdoc';
 
-const serverUrl = 'https://kiddo-backend-l4qf.onrender.com/api/v1';
+const serverUrl = 'https://dev.kiddoapp.in/api/v1';
 
 export const swaggerSpec = swaggerJSDoc({
   definition: {

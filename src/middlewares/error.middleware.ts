@@ -29,6 +29,9 @@ export function errorMiddleware(
     });
   }
 
+  // Log unhandled errors — critical for production debugging
+  console.error(`[ERROR] Unhandled exception on ${_req.method} ${_req.path}:`, error);
+
   return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
     message: 'Internal server error',
   });
