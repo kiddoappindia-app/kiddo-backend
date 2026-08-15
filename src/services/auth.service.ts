@@ -4,7 +4,7 @@ import { StatusCodes } from 'http-status-codes';
 import { nanoid } from 'nanoid';
 import { ROLES, type Role } from '../constants/roles.js';
 import { env } from '../config/env.js';
-import { firebaseAuth } from '../config/firebase-admin.js';
+import { verifyFirebaseIdToken, setFirebaseCustomClaims } from '../config/firebase-admin.js';
 import { Activity } from '../models/activity.model.js';
 import { Family } from '../models/family.model.js';
 import { Session } from '../models/session.model.js';
@@ -211,7 +211,7 @@ export async function firebaseLogin(input: {
   lastName?: string;
   autoCreate?: boolean;
 }) {
-  const decoded = await firebaseAuth.verifyIdToken(input.idToken);
+  const decoded = await verifyFirebaseIdToken(input.idToken);
   if (!decoded.email) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Firebase account email is required');
   }
@@ -238,7 +238,7 @@ export async function firebaseLogin(input: {
         avatar: 'admin',
       });
 
-      await firebaseAuth.setCustomUserClaims(firebaseUid, { role: ROLES.ADMIN });
+      await setFirebaseCustomClaims(firebaseUid, { role: ROLES.ADMIN });
       return buildAuthPayload(user.id, ROLES.ADMIN, undefined, user);
     }
 
@@ -271,7 +271,7 @@ export async function firebaseLogin(input: {
   }
 
   if (user.role === ROLES.ADMIN) {
-    await firebaseAuth.setCustomUserClaims(firebaseUid, { role: ROLES.ADMIN });
+    await setFirebaseCustomClaims(firebaseUid, { role: ROLES.ADMIN });
   }
 
   return buildAuthPayload(user.id, user.role as Role, user.familyId ? String(user.familyId) : undefined, user);
@@ -290,7 +290,7 @@ async function registerParentWithFirebase(input: {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Firebase idToken is required');
   }
 
-  const decoded = await firebaseAuth.verifyIdToken(idToken);
+  const decoded = await verifyFirebaseIdToken(idToken);
   if (!decoded.email) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Firebase account email is required');
   }

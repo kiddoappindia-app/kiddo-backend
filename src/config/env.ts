@@ -13,6 +13,7 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   CLIENT_ORIGIN: z.string().default('http://localhost:5173'),
   FIREBASE_SERVICE_ACCOUNT_KEY: z.string().optional(),
+  FIREBASE_PROJECT_ID: z.string().default('kiddo-bf68d'),
 });
 
 export const env = envSchema.parse(process.env);
