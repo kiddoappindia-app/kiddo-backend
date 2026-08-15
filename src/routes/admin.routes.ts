@@ -13,6 +13,13 @@ router.get('/dashboard', adminController.getDashboard);
 router.get('/tasks', adminController.moderateTasks);
 router.get('/rewards', adminController.moderateRewards);
 
+// Avatar management
+router.get('/avatars', adminController.listAvatarItems);
+router.post('/avatars', adminController.createAvatarItem);
+router.patch('/avatars/:id', adminController.updateAvatarItem);
+router.delete('/avatars/:id', adminController.deleteAvatarItem);
+
+
 // Teacher management
 router.post('/teachers', adminTeacherController.adminCreateTeacher);
 router.get('/teachers', adminTeacherController.adminListTeachers);
