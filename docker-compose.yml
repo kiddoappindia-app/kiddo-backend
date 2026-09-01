@@ -1,0 +1,29 @@
+services:
+  mongodb:
+    image: mongo:8
+    container_name: kiddo-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build: .
+    container_name: kiddo-backend
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: development
+      PORT: "4000"
+      MONGODB_URI: mongodb://mongodb:27017/family-rewards
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-please-change}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-please-change}
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:5173}
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+volumes:
+  mongo-data:

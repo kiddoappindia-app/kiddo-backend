@@ -2,10 +2,14 @@ import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { asyncHandler } from '../utils/async-handler.js';
 import { getAdminAnalytics } from '../services/analytics.service.js';
+import { User } from '../models/user.model.js';
+import { Family } from '../models/family.model.js';
 import { Task } from '../models/task.model.js';
 import { Reward } from '../models/reward.model.js';
 import { RewardRule } from '../models/reward-rule.model.js';
 import { AvatarItem } from '../models/avatar-item.model.js';
+import { Activity } from '../models/activity.model.js';
+import { SchoolClass } from '../models/school-class.model.js';
 import { Types } from 'mongoose';
 
 function getParam(value: string | string[] | undefined) {
@@ -14,7 +18,52 @@ function getParam(value: string | string[] | undefined) {
 
 export const getDashboard = asyncHandler(async (_req: Request, res: Response) => {
   const analytics = await getAdminAnalytics();
-  res.status(StatusCodes.OK).json(analytics);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [
+    parents,
+    children,
+    teachers,
+    activeUsers,
+    families,
+    schoolClasses,
+    completedToday,
+    rewards,
+    recentActivity,
+  ] = await Promise.all([
+    User.countDocuments({ role: 'parent' }),
+    User.countDocuments({ role: 'child' }),
+    User.countDocuments({ role: 'teacher' }),
+    User.countDocuments({ isActive: true }),
+    Family.countDocuments(),
+    SchoolClass.countDocuments({ status: 'active' }),
+    Task.countDocuments({ status: 'completed', completedAt: { $gte: todayStart } }),
+    Reward.countDocuments(),
+    Activity.find().sort({ createdAt: -1 }).limit(10).lean(),
+  ]);
+
+  res.status(StatusCodes.OK).json({
+    summary: analytics.summary,
+    latestMetrics: analytics.latestMetrics,
+    totals: {
+      parents,
+      children,
+      teachers,
+      families,
+      activeUsers,
+      schoolClasses,
+      tasks: analytics.summary.totalTasks,
+      completedToday,
+      rewards,
+    },
+    recentActivity: recentActivity.map((entry) => ({
+      _id: String(entry._id),
+      type: entry.type,
+      message: entry.message,
+      createdAt: entry.createdAt,
+    })),
+  });
 });
 
 export const moderateTasks = asyncHandler(async (_req: Request, res: Response) => {

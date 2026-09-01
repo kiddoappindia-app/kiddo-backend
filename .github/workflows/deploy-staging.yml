@@ -1,0 +1,71 @@
+name: Deploy to Cloud Run (staging)
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cloud-run-staging
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  IMAGE: gcr.io/${{ vars.GCP_PROJECT_ID_STAGING }}/kiddo-backend-staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_STAGING }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_STAGING }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID_STAGING }}
+
+      - name: Build image
+        run: docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest .
+
+      - name: Push image
+        run: |
+          gcloud auth configure-docker gcr.io --quiet
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: kiddo-backend-staging
+          region: ${{ vars.GCP_REGION_STAGING }}
+          image: $IMAGE:${{ github.sha }}
+          flags: |
+            --allow-unauthenticated
+            --memory=512Mi
+            --cpu=1
+            --min-instances=0
+            --max-instances=5
+            --timeout=300
+          env_vars: |
+            NODE_ENV=production
+            PORT=8080
+            CLIENT_ORIGIN=${{ vars.CLIENT_ORIGIN_STAGING }}
+            JWT_ACCESS_EXPIRES_IN=${{ vars.JWT_ACCESS_EXPIRES_IN_STAGING }}
+            JWT_REFRESH_EXPIRES_IN=${{ vars.JWT_REFRESH_EXPIRES_IN_STAGING }}
+            FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID_STAGING }}
+          secrets: |
+            MONGODB_URI=mongodb-uri-staging:latest
+            JWT_ACCESS_SECRET=jwt-access-secret-staging:latest
+            JWT_REFRESH_SECRET=jwt-refresh-secret-staging:latest
+            FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key-staging:latest
+
+      - name: Output service URL
+        run: echo "Staging service URL: https://kiddo-backend-staging-${{ vars.GCP_PROJECT_ID_STAGING }}-uc.a.run.app"

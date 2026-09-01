@@ -1,0 +1,16 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+coverage
+firebase_service_account_env.txt
+Dockerfile
+.dockerignore
+docker-compose.yml
+cloudbuild.yaml
+deploy.ps1
+DEPLOY.md
+*.md
