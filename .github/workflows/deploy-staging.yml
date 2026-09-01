@@ -42,6 +42,7 @@ jobs:
           docker push $IMAGE:latest
 
       - name: Deploy to Cloud Run
+        id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: kiddo-backend-staging
@@ -54,18 +55,18 @@ jobs:
             --min-instances=0
             --max-instances=5
             --timeout=300
-          env_vars: |
+          env_vars: |-
             NODE_ENV=production
             PORT=8080
             CLIENT_ORIGIN=${{ vars.CLIENT_ORIGIN_STAGING }}
             JWT_ACCESS_EXPIRES_IN=${{ vars.JWT_ACCESS_EXPIRES_IN_STAGING }}
             JWT_REFRESH_EXPIRES_IN=${{ vars.JWT_REFRESH_EXPIRES_IN_STAGING }}
             FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID_STAGING }}
-          secrets: |
+          secrets: |-
             MONGODB_URI=mongodb-uri-staging:latest
             JWT_ACCESS_SECRET=jwt-access-secret-staging:latest
             JWT_REFRESH_SECRET=jwt-refresh-secret-staging:latest
             FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key-staging:latest
 
       - name: Output service URL
-        run: echo "Staging service URL: https://kiddo-backend-staging-${{ vars.GCP_PROJECT_ID_STAGING }}-uc.a.run.app"
+        run: echo "Staging service URL: ${{ steps.deploy.outputs.url }}"
