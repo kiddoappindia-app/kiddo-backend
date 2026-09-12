@@ -14,40 +14,56 @@ permissions:
   contents: read
 
 env:
-  IMAGE: gcr.io/${{ vars.GCP_PROJECT_ID }}/kiddo-backend
+  PROJECT_ID: kiddobackend
+  REGION: asia-south1
+  ARTIFACT_REGISTRY_HOST: asia-south1-docker.pkg.dev
+  IMAGE: asia-south1-docker.pkg.dev/kiddobackend/kiddo/kiddo-backend
+  CLOUD_RUN_SERVICE: kiddo-backend
+  WIF_PROVIDER: projects/950978285173/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  DEPLOY_SERVICE_ACCOUNT: github-actions@kiddobackend.iam.gserviceaccount.com
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - id: auth
+      - name: Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SERVICE_ACCOUNT }}
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ vars.GCP_PROJECT_ID }}
+          project_id: ${{ env.PROJECT_ID }}
 
-      - name: Build image
-        run: docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest .
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY_HOST }} --quiet
 
-      - name: Push image
+      - name: Build Docker image
         run: |
-          gcloud auth configure-docker gcr.io --quiet
-          docker push $IMAGE:${{ github.sha }}
-          docker push $IMAGE:latest
+          docker build \
+            --tag "$IMAGE:${{ github.sha }}" \
+            --tag "$IMAGE:latest" \
+            .
 
-      - name: Deploy to Cloud Run
+      - name: Push image to Artifact Registry
+        run: |
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+
+      - name: Deploy image to Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
-          service: kiddo-backend
-          region: ${{ vars.GCP_REGION }}
-          image: $IMAGE:${{ github.sha }}
+          service: ${{ env.CLOUD_RUN_SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.IMAGE }}:${{ github.sha }}
           flags: |
             --allow-unauthenticated
             --memory=512Mi
@@ -57,16 +73,16 @@ jobs:
             --timeout=300
           env_vars: |-
             NODE_ENV=production
-            PORT=8080
-            CLIENT_ORIGIN=${{ vars.CLIENT_ORIGIN }}
-            JWT_ACCESS_EXPIRES_IN=${{ vars.JWT_ACCESS_EXPIRES_IN }}
-            JWT_REFRESH_EXPIRES_IN=${{ vars.JWT_REFRESH_EXPIRES_IN }}
-            FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+            CLIENT_ORIGIN=${{ vars.CLIENT_ORIGIN || 'https://kiddoapp.in,https://www.kiddoapp.in' }}
+            JWT_ACCESS_EXPIRES_IN=${{ vars.JWT_ACCESS_EXPIRES_IN || '15m' }}
+            JWT_REFRESH_EXPIRES_IN=${{ vars.JWT_REFRESH_EXPIRES_IN || '7d' }}
+            FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID || 'kiddo-bf68d' }}
           secrets: |-
             MONGODB_URI=mongodb-uri:latest
             JWT_ACCESS_SECRET=jwt-access-secret:latest
             JWT_REFRESH_SECRET=jwt-refresh-secret:latest
             FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key:latest
 
-      - name: Output service URL
-        run: echo "Service URL: ${{ steps.deploy.outputs.url }}"
+      - name: Show service URL
+        run: |
+          echo "Cloud Run service URL: ${{ steps.deploy.outputs.url }}"
