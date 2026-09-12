@@ -66,6 +66,7 @@ import mediaRoutes from './routes/media.routes.js';
 import contentVersionRoutes from './routes/content-version.routes.js';
 import moderationRoutes from './routes/moderation.routes.js';
 import { swaggerSpec } from './docs/swagger.js';
+import { swaggerPortalCss, swaggerPortalFavicon, swaggerPortalJs, swaggerPortalOptions } from './docs/swagger-portal.js';
 import { errorMiddleware, notFoundMiddleware } from './middlewares/error.middleware.js';
 import { apiLimiter, authLimiter } from './middlewares/rate-limit.middleware.js';
 import { isOriginAllowed } from './config/env.js';
@@ -102,11 +103,22 @@ app.get('/api-docs.json', (_req, res) => {
   res.json(swaggerSpec);
 });
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  swaggerOptions: {
-    filter: true,
-  },
-}));
+app.get('/api-docs/kiddo-portal.css', (_req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.type('text/css').send(swaggerPortalCss);
+});
+
+app.get('/api-docs/kiddo-portal.js', (_req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.type('application/javascript').send(swaggerPortalJs);
+});
+
+app.get('/api-docs/kiddo-favicon.svg', (_req, res) => {
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.type('image/svg+xml').send(swaggerPortalFavicon);
+});
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerPortalOptions));
 app.use('/api/v1', apiLimiter);
 app.use('/api/v1/auth', authLimiter, authRoutes);
 app.use('/api/v1/tasks', taskRoutes);

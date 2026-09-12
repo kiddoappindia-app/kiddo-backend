@@ -1,6 +1,7 @@
 import swaggerJSDoc from 'swagger-jsdoc';
 
 const serverUrl = 'https://dev.kiddoapp.in/api/v1';
+const productionServerUrl = 'https://kiddo-backend-950978285173.asia-south1.run.app/api/v1';
 
 export const swaggerSpec = swaggerJSDoc({
   definition: {
@@ -10,7 +11,10 @@ export const swaggerSpec = swaggerJSDoc({
       version: '1.0.0',
       description: 'REST API for KidDo mobile and admin applications.',
     },
-    servers: [{ url: serverUrl }],
+    servers: [
+      { url: serverUrl, description: 'Development' },
+      { url: productionServerUrl, description: 'Production' },
+    ],
     tags: [
       { name: 'Health', description: 'Service health endpoints' },
       { name: 'Auth', description: 'Authentication and account bootstrapping' },
