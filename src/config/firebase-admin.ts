@@ -43,24 +43,36 @@ async function getGooglePublicKeys(): Promise<Record<string, string>> {
 export async function verifyFirebaseIdToken(idToken: string): Promise<any> {
   // If service account key is available, use standard Firebase SDK verification
   if (env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    return firebaseAuth.verifyIdToken(idToken);
+    try {
+      return await firebaseAuth.verifyIdToken(idToken);
+    } catch (err: any) {
+      console.error('[Firebase-Admin] SDK verifyIdToken failed:', err.message);
+      throw new Error(`Firebase token verification failed: ${err.message}`);
+    }
   }
 
-  // Local JWT Signature verification using Google's public certificates (Zero Service Account Key required in cloud environment)
+  // Local JWT Signature verification using Google's public certificates
   const decodedUnverified = jwt.decode(idToken, { complete: true });
   if (!decodedUnverified || typeof decodedUnverified === 'string') {
-    throw new Error('Invalid token format');
+    throw new Error('Invalid Firebase token format');
   }
 
   const kid = decodedUnverified.header.kid;
   if (!kid) {
-    throw new Error('Token header missing "kid"');
+    throw new Error('Firebase token header missing "kid"');
   }
 
-  const publicKeys = await getGooglePublicKeys();
+  let publicKeys: Record<string, string>;
+  try {
+    publicKeys = await getGooglePublicKeys();
+  } catch (err: any) {
+    console.error('[Firebase-Admin] Failed to fetch Google public keys:', err.message);
+    throw new Error('Unable to verify Firebase token — could not fetch Google public keys');
+  }
+
   const publicKey = publicKeys[kid];
   if (!publicKey) {
-    throw new Error('Public key not found for kid');
+    throw new Error('Firebase token signed with unknown key (kid not found in Google public keys)');
   }
 
   return new Promise((resolve, reject) => {
@@ -74,7 +86,8 @@ export async function verifyFirebaseIdToken(idToken: string): Promise<any> {
       },
       (err, decoded) => {
         if (err) {
-          reject(err);
+          console.error('[Firebase-Admin] JWT verification failed:', err.message);
+          reject(new Error(`Firebase token verification failed: ${err.message}`));
         } else {
           resolve(decoded);
         }

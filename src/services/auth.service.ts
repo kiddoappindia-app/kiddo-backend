@@ -211,7 +211,14 @@ export async function firebaseLogin(input: {
   lastName?: string;
   autoCreate?: boolean;
 }) {
-  const decoded = await verifyFirebaseIdToken(input.idToken);
+  let decoded: any;
+  try {
+    decoded = await verifyFirebaseIdToken(input.idToken);
+  } catch (err: any) {
+    console.error('[Auth] Firebase token verification failed:', err.message);
+    throw new ApiError(StatusCodes.UNAUTHORIZED, `Firebase authentication failed: ${err.message}`);
+  }
+
   if (!decoded.email) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Firebase account email is required');
   }
